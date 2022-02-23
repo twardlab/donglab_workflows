@@ -9,3 +9,9 @@ include instructions for setting up vertual env with all requirements
 need:
 example images for each case
 required specifications
+
+
+# Daniel's plan
+start with jupyter notebooks, then turn them into scripts
+
+I will want an importable library as well.
