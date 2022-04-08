@@ -1,0 +1,7 @@
+numpy
+matplotlib
+os
+glob
+h5py
+imp
+time
