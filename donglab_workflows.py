@@ -241,3 +241,48 @@ def downsample_dataset(data,down,xI=None):
     print(f'Finished downsampling, time {time.time() - start}')
 
     return output
+
+def imaris_bytes_to_float(data):
+    return float(''.join([c.decode() for c in data]))
+
+def imaris_get_pixel_size(f):
+    '''
+    Get pixel size from Imaris dataset using attributes
+    '''
+    info = f['DataSetInfo/Image']
+    dx0 = (imaris_bytes_to_float(info.attrs['ExtMax0']) - imaris_bytes_to_float(info.attrs['ExtMin0']))/(imaris_bytes_to_float(info.attrs['X']))
+    dx1 = (imaris_bytes_to_float(info.attrs['ExtMax1']) - imaris_bytes_to_float(info.attrs['ExtMin1']))/(imaris_bytes_to_float(info.attrs['Y']))
+    dx2 = (imaris_bytes_to_float(info.attrs['ExtMax2']) - imaris_bytes_to_float(info.attrs['ExtMin2']))/(imaris_bytes_to_float(info.attrs['Z']))
+    return np.array([dx2,dx1,dx0]) # note here we need to swap the order to be consistent with zyx images
+def imaris_get_x(f):
+    '''
+    Get 3D pixel locations
+    
+    Parameters
+    ----------
+    f : imaris file
+        Imaris file to read info from
+        
+    Returns
+    -------
+    x : list of numpy arrays
+        locations of each pixel along z,y,x directions
+    '''
+    info = f['DataSetInfo/Image']
+    xmin = np.array(
+        [imaris_bytes_to_float(info.attrs['ExtMin2']),
+         imaris_bytes_to_float(info.attrs['ExtMin1']),
+         imaris_bytes_to_float(info.attrs['ExtMin0'])]
+    )
+    xmax = np.array(
+        [imaris_bytes_to_float(info.attrs['ExtMax2']),
+         imaris_bytes_to_float(info.attrs['ExtMax1']),
+         imaris_bytes_to_float(info.attrs['ExtMax0'])]
+    )
+    nx = np.array([imaris_bytes_to_float(info.attrs['Z']),
+                   imaris_bytes_to_float(info.attrs['Y']),
+                   imaris_bytes_to_float(info.attrs['X'])])
+    dx = nx/(xmax - xmin)
+    x = [np.arange(n)*d + x0 for n,d,x0 in zip(nx,dx,xmin)]
+    return x
+    
