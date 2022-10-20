@@ -258,6 +258,12 @@ def imaris_get_x(f):
     '''
     Get 3D pixel locations
     
+    Note when we use X Y Z metadata, this may be smaller than the 
+    number of voxels (due to padding for chunks). This does correspond
+    to the real acquired data though.
+    
+    
+    
     Parameters
     ----------
     f : imaris file
@@ -282,7 +288,7 @@ def imaris_get_x(f):
     nx = np.array([imaris_bytes_to_float(info.attrs['Z']),
                    imaris_bytes_to_float(info.attrs['Y']),
                    imaris_bytes_to_float(info.attrs['X'])])
-    dx = nx/(xmax - xmin)
+    dx = (xmax - xmin)/nx
     x = [np.arange(n)*d + x0 for n,d,x0 in zip(nx,dx,xmin)]
     return x
     
