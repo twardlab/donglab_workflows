@@ -27,7 +27,6 @@ Image.MAX_IMAGE_PIXELS = None
 import tifffile as tf # for 16 bit tiff
 import h5py
 
-
 parser = argparse.ArgumentParser(description="Downsample the lightsheet")
 
 parser.add_argument("input_path",type=pathlib.Path,help="The input path, can be a directory or a filename")
@@ -47,8 +46,8 @@ input_path, image_type, output_filename, outdir, dI, res, channel, dataset_strin
 power = np.ones(1,dtype=np.float32)*0.125
 
 # blocksize and chunksize for looking for areas with no data and loading quickly
-blocksize = 64 # 
-chunksize = 32 # 
+blocksize = None 
+chunksize = None 
 
 down = np.floor(res/dI).astype(int)
 
@@ -94,6 +93,13 @@ if image_type == 'tif':
 elif image_type == 'ims':
     data_ = h5py.File(input_path,mode='r')
     data = data_[dataset_string]
+
+# get the data
+data = f[dataset_string]
+if chunksize is None:
+    chunksize = data.chunks[0]
+if blocksize is None:
+    blocksize = data.chunks[1]
 
 print(f'Input path is {input_path}')
 print(f'Output filename is {output_filename}')
