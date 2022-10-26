@@ -39,7 +39,14 @@ parser.add_argument("-dss","--dataset_string",default=None)
 
 args = parser.parse_args()
 
-input_path, image_type, output_filename, outdir, dI, res, channel, dataset_string = args
+input_path      = args.input_path
+image_type      = args.image_type
+output_filename = args.output_filename
+outdir          = args.outdir
+dI              = args.dI
+res             = args.res
+channel         = args.channel
+dataset_string  = args.dataset_string
 
 # power to reduce dynamic range
 power = np.ones(1,dtype=np.float32)*0.125
@@ -47,8 +54,6 @@ power = np.ones(1,dtype=np.float32)*0.125
 # blocksize and chunksize for looking for areas with no data and loading quickly
 blocksize = None 
 chunksize = None 
-
-down = np.floor(res/dI).astype(int)
 
 # build a tif class with similar interface
 class TifStack:
@@ -94,7 +99,6 @@ elif image_type == 'ims':
     data = data_[dataset_string]
 
 # get the data
-data = f[dataset_string]
 if chunksize is None:
     chunksize = data.chunks[0]
 if blocksize is None:
@@ -106,6 +110,8 @@ print(f'Resolution is {dI}')
 print(f'Desired resolution is {res}')
 print(f'Dataset string is {dataset_string}')
 print(f'tmp output dir is {outdir}')
+
+down = np.floor(res/dI).astype(int)
 
 nI = np.array(data.shape)
 xI = [np.arange(n)*d - (n-1)/2.0*d for n,d in zip(nI,dI)]
