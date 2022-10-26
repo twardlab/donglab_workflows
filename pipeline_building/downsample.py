@@ -10,7 +10,6 @@ import pathlib
 # Modules imported from original .ipynb file
 import numpy as np
 import matplotlib.pyplot as plt
-%matplotlib notebook
 import os
 from glob import glob
 from os.path import join as pathjoin
