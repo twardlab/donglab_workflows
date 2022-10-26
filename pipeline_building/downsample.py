@@ -33,7 +33,7 @@ parser.add_argument("input_path",type=pathlib.Path,help="The input path, can be 
 parser.add_argument("image_type",choices=["ims","tif"],help="The image type, can be either ims or tif")
 parser.add_argument("-of","--output_filename",default=None,help="The name of the generated output file")
 parser.add_argument("outdir",type=pathlib.Path,help="The temporary output directory for intermediate results")
-parser.add_argument("dI",default=None,help="Deviation Index")
+parser.add_argument("-dI",default=None,help="Deviation Index")
 parser.add_argument("-res",default=50.0,type=np.float32,help="Desired voxel size")
 parser.add_argument("-c","--channel",default=0,type=int,help="Specify channel number")
 parser.add_argument("-dss","--dataset_string",default=None)
