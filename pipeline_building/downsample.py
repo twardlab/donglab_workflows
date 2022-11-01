@@ -236,3 +236,9 @@ output = np.concatenate(output)
 Id = output
 wd = np.concatenate(outputw)
 print(f'Finished downsampling, time {time.time() - start}')
+
+np.savez(output_filename,I=Id,I2=np.concatenate(output2),xI=np.array(xId,dtype='object'),w=wd) # note specify object to avoid "ragged" warning
+
+fig,ax = dw.draw_slices(Id,xId)
+fig.suptitle(output_filename)
+fig.savefig(output_filename.replace('npz','jpg'))
