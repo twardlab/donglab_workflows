@@ -36,6 +36,8 @@ parser.add_argument("-dI",default=None,help="Deviation Index")
 parser.add_argument("-res",default=50.0,type=np.float32,help="Desired voxel size")
 parser.add_argument("-c","--channel",default=0,type=int,help="Specify channel number")
 parser.add_argument("-dss","--dataset_string",default=None)
+parser.add_argument("-cs","--chunksize",default=None,help="chunksize for looking for areas with no data and loading quickly")
+parser.add_argument("-bs","--blocksize",default=None,help="blocksizesize for looking for areas with no data and loading quickly")
 
 args = parser.parse_args()
 
@@ -47,13 +49,13 @@ dI              = args.dI
 res             = args.res
 channel         = args.channel
 dataset_string  = args.dataset_string
+chunksize       = args.chunksize
+blocksize       = args.blocksize
 
 # power to reduce dynamic range
 power = np.ones(1,dtype=np.float32)*0.125
 
 # blocksize and chunksize for looking for areas with no data and loading quickly
-blocksize = None 
-chunksize = None 
 
 # build a tif class with similar interface
 class TifStack:
