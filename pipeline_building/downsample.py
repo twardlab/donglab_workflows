@@ -111,7 +111,7 @@ print(f'Output filename is {output_filename}')
 print(f'Resolution is {dI}')
 print(f'Desired resolution is {res}')
 print(f'Dataset string is {dataset_string}')
-print(f'tmp output dir is {outdir}')
+print(f'Temp output dir is {outdir}')
 
 down = np.floor(res/dI).astype(int)
 
@@ -180,7 +180,7 @@ for i in range(nIreal[0]):
         sd[np.isnan(sd)] = 0.0
         s2d /= wd
         s2d[np.isnan(s2d)] = 0.0
-        
+    
         np.save(outname,sd)
         np.save(outname.replace('_s','_w'),wd)
         np.save(outname.replace('_s','_s2'),s2d)
