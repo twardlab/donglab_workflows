@@ -36,6 +36,7 @@ parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of 
 parser.add_argument("seg_name",type=pathlib.Path,help="Location of segmentation file")
 parser.add_argument("savename",type=pathlib.Path,help="Name of file once it is saved")
 parser.add_argument("-d","--device",default='cuda:0',help="Device used for pytorch")
+parser.add_argument("-a","--A0",default=None,help="Affine transformation")
 
 args = parser.parse_args()
 
@@ -45,7 +46,7 @@ atlas_names   = args.atlas_names
 seg_name      = args.seg_name
 savename      = args.savename
 device        = args.device
-
+A0            = args.A0
 
 
 # Specify output directory
@@ -53,7 +54,6 @@ output_directory = os.path.split(output_prefix)[0]
 if output_directory:
     if not os.path.exists(output_directory):
         os.mkdir(output_directory)
-        
         
         
 # Load the target image
@@ -164,31 +164,32 @@ fig.canvas.draw()
 
 ### Registration
 
-# initial affine
-A0 = np.eye(4)
-# make sure to keep sign of Jacobian
-#A0 = np.diag((1.3,1.3,1.3,1.0))@A0
-# flip x0,x1
-A0 = np.array([[0.0,-1.0,0.0,0.0],[1.0,0.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,0.0,0.0,1.0]])@A0
-# flip x0,x2
-A0 = np.array([[0.0,0.0,-1.0,0.0],[0.0,1.0,0.0,0.0],[1.0,0.0,0.0,0.0],[0.0,0.0,0.0,1.0]])@A0
-# flip x1,x2
-#A0 = np.array([[-1.0,0.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,0.0,1.0]])@A0
-# flip 
-#A0 = np.diag((1.0,-1.0,-1.0,1.0))@A0
-# shift
-#A0[0,-1] = +3500 # left right, positive will cut off the missing hemisphere as appropriate
-#A0[1,-1] = -2500 # AP, negative will cut off the nose
-#A0[2,-1] = -1000 # SI, negative will move the venttral surface toward the boundary
+if A0 == None:                   
+    # initial affine
+    A0 = np.eye(4)
+    # make sure to keep sign of Jacobian
+    #A0 = np.diag((1.3,1.3,1.3,1.0))@A0
+    # flip x0,x1
+    A0 = np.array([[0.0,-1.0,0.0,0.0],[1.0,0.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,0.0,0.0,1.0]])@A0
+    # flip x0,x2
+    A0 = np.array([[0.0,0.0,-1.0,0.0],[0.0,1.0,0.0,0.0],[1.0,0.0,0.0,0.0],[0.0,0.0,0.0,1.0]])@A0
+    # flip x1,x2
+    #A0 = np.array([[-1.0,0.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,0.0,1.0]])@A0
+    # flip 
+    #A0 = np.diag((1.0,-1.0,-1.0,1.0))@A0
+    # shift
+    #A0[0,-1] = +3500 # left right, positive will cut off the missing hemisphere as appropriate
+    #A0[1,-1] = -2500 # AP, negative will cut off the nose
+    #A0[2,-1] = -1000 # SI, negative will move the venttral surface toward the boundary
 
-XJ = np.meshgrid(*xJ,indexing='ij')
-A0[:3,-1] = np.mean(XJ,axis=(-1,-2,-3))
+    XJ = np.meshgrid(*xJ,indexing='ij')
+    A0[:3,-1] = np.mean(XJ,axis=(-1,-2,-3))
 
-# check it
-tform = emlddmm.Transform(A0,direction='b')
-AI = emlddmm.apply_transform_float(xI,I,tform.apply(XJ))
-fig,ax = emlddmm.draw(np.concatenate((AI[:2],J)),xJ,vmin=0)
-fig.canvas.draw()
+    # check it
+    tform = emlddmm.Transform(A0,direction='b')
+    AI = emlddmm.apply_transform_float(xI,I,tform.apply(XJ))
+    fig,ax = emlddmm.draw(np.concatenate((AI[:2],J)),xJ,vmin=0)
+    fig.canvas.draw()
 
 # now we want to register
 config0 = {
