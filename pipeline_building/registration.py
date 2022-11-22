@@ -36,7 +36,7 @@ parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of 
 parser.add_argument("seg_name",type=pathlib.Path,help="Location of segmentation file")
 parser.add_argument("savename",type=pathlib.Path,help="Name of file once it is saved")
 parser.add_argument("-d","--device",default='cuda:0',help="Device used for pytorch")
-parser.add_argument("-a","--A0",default=None,help="Affine transformation")
+parser.add_argument("-a","--A0",type=str,default=None,help="Affine transformation (Squeezed to 16x1 + Sep by ',')")
 
 args = parser.parse_args()
 
@@ -190,6 +190,9 @@ if A0 == None:
     AI = emlddmm.apply_transform_float(xI,I,tform.apply(XJ))
     fig,ax = emlddmm.draw(np.concatenate((AI[:2],J)),xJ,vmin=0)
     fig.canvas.draw()
+    
+if A0 != None:
+    A0 = np.fromstring(A0,sep=',').reshape(4,4)
 
 # now we want to register
 config0 = {
