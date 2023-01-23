@@ -49,6 +49,21 @@ device        = args.device
 A0            = args.A0
 
 
+
+##########
+# Note from Daniel on January 23, 2023 
+# check if specified device is available
+import torch
+if 'cuda' in device:
+    # you may still get into trouble if cuda:1 is selected but only cuda:0 is available
+    # we should update this to check more carefully, but this is probably okay for now
+    assert(torch.cuda.is_available(), 'You selected device cuda but it is not available. exiting')
+##########
+
+    
+    
+
+
 # Specify output directory
 output_directory = os.path.split(output_prefix)[0]
 if output_directory:
@@ -235,7 +250,7 @@ config1['ev'] = 2e-3 # reduce since I decreased sigma
 config1['v_res_factor'] = config1['a']/dI[0]/2 # what is the resolution of v, as a multiple of that in I
 config1['local_contrast'] = [32,32,32]
 config1['local_contrast'] = [16,16,16]
-config1['device'] = 'cpu'
+# config1['device'] = 'cpu' # we will keep the same device and not update it, this can cause problems
 
 #I_ = np.stack((I[2],I[0],I[1],I[0]**2,I[0]*I[1],I[1]**2,))
 
