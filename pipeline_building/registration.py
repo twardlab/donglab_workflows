@@ -10,7 +10,7 @@ import pathlib
 # Modules imported from original .ipynb file
 import numpy as np
 import matplotlib.pyplot as plt
-%matplotlib notebook
+%matplotlib notebook 
 import os
 from glob import glob
 from os.path import join as pathjoin
@@ -580,8 +580,11 @@ for l in labels:
     verts += oJ
     
     # let's save this
-    readme = 'Data are saved in ZYX order'
-    np.savez(output_prefix + f'structure_{l:012d}_surface.npz',verts=verts,faces=faces,normals=normals,values=values,readme=readme)
+    readme_dct = { 'notes' : 'Data are saved in ZYX order',
+                   'atlas_id' : ontology[l][1],
+                   'id' : {ontology[l][0]} }
+    readme = str(readme_dct)
+    np.savez(output_prefix + f'structure_{l:012d}_surface_{readme_dct["id"]}.npz',verts=verts,faces=faces,normals=normals,values=values,readme=readme)
     
     surf = Poly3DCollection(verts[faces])
     n = compute_face_normals(verts,faces,normalize=True)
@@ -605,4 +608,4 @@ for l in labels:
     
     ax.set_title(f'structure {l}, {ontology[l][1]} ({ontology[l][0]})')    
     fig.canvas.draw()
-    fig.savefig(output_prefix + f'structure_{l:012d}_surface.jpg')
+    fig.savefig(output_prefix + f'structure_{l:012d}_surface_{readme_dct["id"]}.jpg')
