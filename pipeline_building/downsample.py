@@ -137,14 +137,19 @@ start = time.time()
 for i in range(nIreal[0]):
     starti = time.time()
     outname = os.path.join(outdir,f'{i:06d}_s.npy')
-    
 
-
-    if os.path.exists(outname):
+    ##########
+    # Note from Daniel on January 23, 2023
+    # s2 is for measuring local variance, as an additional feature that preserves some high resolution information
+    # in the future we may want to disable this, since it doubles the compute time (although it does not affect the network/io time)
+    ##########
+    outnames2 = outname.replace('_s','_s2')
+    outnamew = outname.replace('_s','_w')
+    if os.path.exists(outname) and os.path.exists(outnames2) and os.path.exists(outnamew):
         # what happens if it fails in the middle of a chunk?
         sd = np.load(outname)
-        s2d = np.load(outname.replace('_s','_s2'))
-        wd = np.load(outname.replace('_s','_w'))
+        s2d = np.load(outnames2)
+        wd = np.load(outnamew)
     else:
         # load a whole chunk
         if not i%chunksize:
