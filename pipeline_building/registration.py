@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
 # New modules to import
 import argparse
 import pathlib
@@ -582,9 +580,12 @@ for l in labels:
     # let's save this
     readme_dct = { 'notes' : 'Data are saved in ZYX order',
                    'atlas_id' : ontology[l][1],
-                   'id' : {ontology[l][0]} }
+                   'id' : ontology[l][0] }
     readme = str(readme_dct)
-    np.savez(output_prefix + f'structure_{l:012d}_surface_{readme_dct["id"]}.npz',verts=verts,faces=faces,normals=normals,values=values,readme=readme)
+    # Clean id to prevent region names interfering with file name
+    clean_id = readme_dct["id"].replace('/', '_')
+    structure_fname = os.path.join(output_prefix, f'structure_{l:012d}_surface_{clean_id}.npz')
+    np.savez(structure_fname, verts=verts,faces=faces,normals=normals,values=values,readme=readme)
     
     surf = Poly3DCollection(verts[faces])
     n = compute_face_normals(verts,faces,normalize=True)
@@ -608,4 +609,4 @@ for l in labels:
     
     ax.set_title(f'structure {l}, {ontology[l][1]} ({ontology[l][0]})')    
     fig.canvas.draw()
-    fig.savefig(output_prefix + f'structure_{l:012d}_surface_{readme_dct["id"]}.jpg')
+    fig.savefig(os.path.join(output_prefix, f'structure_{l:012d}_surface_{clean_id}.jpg'))
