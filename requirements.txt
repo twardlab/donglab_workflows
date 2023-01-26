@@ -1,7 +1,9 @@
 numpy
 matplotlib
-os
-glob
+nibabel
 h5py
-imp
-time
+tifffile
+torch
+requests
+scikit-image
+pandas
