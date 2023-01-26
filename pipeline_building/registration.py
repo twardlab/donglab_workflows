@@ -24,9 +24,9 @@ parser = argparse.ArgumentParser(description="Register images in atlas")
 
 parser.add_argument("target_name",type=pathlib.Path,help="Name of the file to be registered")
 parser.add_argument("output_prefix",type=pathlib.Path,help="Location of the output file(s)")
-parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of the atlas images")
 parser.add_argument("seg_name",type=pathlib.Path,help="Location of segmentation file")
 parser.add_argument("savename",type=pathlib.Path,help="Name of file once it is saved")
+parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of the atlas images")
 parser.add_argument("-d","--device",default='cuda:0',help="Device used for pytorch")
 parser.add_argument("-a","--A0",type=str,default=None,help="Affine transformation (Squeezed to 16x1 + Sep by ',')")
 
@@ -181,8 +181,7 @@ if A0 == None:
     AI = emlddmm.apply_transform_float(xI,I,tform.apply(XJ))
     fig,ax = emlddmm.draw(np.concatenate((AI[:2],J)),xJ,vmin=0)
     fig.canvas.draw()
-    
-if A0 != None:
+else:  # Use else here, otherwise this will always run
     A0 = np.fromstring(A0,sep=',').reshape(4,4)
 
 # now we want to register
