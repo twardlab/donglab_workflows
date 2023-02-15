@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
 # New modules to import
 import argparse
 import pathlib
@@ -10,31 +8,25 @@ import pathlib
 # Modules imported from original .ipynb file
 import numpy as np
 import matplotlib.pyplot as plt
-%matplotlib notebook 
 import os
-from glob import glob
-from os.path import join as pathjoin
-import time
-
+import requests
+import csv
+import pandas as pd
+from skimage.measure import marching_cubes
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import sys
-sys.path.append('..')
-import imp
-import donglab_workflows as dw
-imp.reload(dw)
 
 # for now add emlddmm library for registration
-import sys
 sys.path.append('/home/dtward/data/csh_data/emlddmm')
 import emlddmm
-imp.reload(emlddmm)
 
 parser = argparse.ArgumentParser(description="Register images in atlas")
 
 parser.add_argument("target_name",type=pathlib.Path,help="Name of the file to be registered")
 parser.add_argument("output_prefix",type=pathlib.Path,help="Location of the output file(s)")
-parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of the atlas images")
 parser.add_argument("seg_name",type=pathlib.Path,help="Location of segmentation file")
 parser.add_argument("savename",type=pathlib.Path,help="Name of file once it is saved")
+parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of the atlas images")
 parser.add_argument("-d","--device",default='cuda:0',help="Device used for pytorch")
 parser.add_argument("-a","--A0",type=str,default=None,help="Affine transformation (Squeezed to 16x1 + Sep by ',')")
 
@@ -97,7 +89,7 @@ emlddmm.draw(W[None])
 fig,ax = emlddmm.draw(J,xJ,vmin=np.min(J[W[None]>0.9]))
 fig.suptitle('Downsampled lightsheet data')
 figopts = {'dpi':300,'quality':90}
-fig.savefig(output_prefix + 'downsampled.jpg',**figopts)
+fig.savefig(os.path.join(output_prefix, 'downsampled.jpg'),**figopts)
 fig.canvas.draw()
 
 I = []
@@ -151,13 +143,12 @@ J /= np.mean(np.abs(J))
 fig,ax = emlddmm.draw(J,xJ,vmin=0)
 fig.canvas.draw()
 fig.suptitle('Preprocessed lightsheet data')
-fig.savefig(output_prefix + 'processed.jpg',**figopts)
+fig.savefig(os.path.join(output_prefix, 'processed.jpg'), **figopts)
 
 
 fig,ax = plt.subplots()
 ax.hist(J.ravel(),100,log=True)
 fig.canvas.draw()
-
 
 # Atlas preprocessing
 
@@ -205,8 +196,7 @@ if A0 == None:
     AI = emlddmm.apply_transform_float(xI,I,tform.apply(XJ))
     fig,ax = emlddmm.draw(np.concatenate((AI[:2],J)),xJ,vmin=0)
     fig.canvas.draw()
-    
-if A0 != None:
+else:  # Use else here, otherwise this will always run
     A0 = np.fromstring(A0,sep=',').reshape(4,4)
 
 # now we want to register
@@ -267,7 +257,6 @@ I_ = np.stack((I[0]-np.mean(I[0]),I[1]-np.mean(I[1]),
 
 out1 = emlddmm.emlddmm(xI=xI,I=I_,xJ=xJ,J=J, W0=W, **config1)
 
-imp.reload(emlddmm)
 # on the next run we do les downsampling
 config2 = dict(config1)
 config2['A'] = out1['A']
@@ -281,11 +270,11 @@ out2 = emlddmm.emlddmm(xI=xI,I=I_,xJ=xJ,J=J, W0=W, **config2)
 # the matching energy here is way way lower, why would that be?
 
 # save the outputs
-np.save(output_prefix+savename,np.array([out2],dtype=object))
+np.save(os.path.join(output_prefix, savename), np.array([out2],dtype=object))
 
-out2['figI'].savefig(output_prefix + 'transformed.jpg',**figopts)
-out2['figfI'].savefig(output_prefix + 'contrast.jpg',**figopts)
-out2['figErr'].savefig(output_prefix + 'err.jpg',**figopts)
+out2['figI'].savefig(os.path.join(output_prefix, 'transformed.jpg'), **figopts)
+out2['figfI'].savefig(os.path.join(output_prefix, 'contrast.jpg'), **figopts)
+out2['figErr'].savefig(os.path.join(output_prefix, 'err.jpg'), **figopts)
 
 fig = out2['figErr']
 axs = fig.get_axes()
@@ -297,7 +286,7 @@ for ax in axs:
         lim = np.max(np.abs(clim))
         im.set_clim(np.array((-1,1))*lim)
 fig.canvas.draw()
-fig.savefig(output_prefix + 'err.jpg',**figopts)
+fig.savefig(os.path.join(output_prefix, 'err.jpg'), **figopts)
 
 
 ### Prepare some visualizations
@@ -316,20 +305,19 @@ St = emlddmm.apply_transform_int(xS,S,tform,double=True,padding_mode='zeros').cp
 #fig.subplots_adjust(wspace=0,hspace=0,right=1)
 fig,ax = emlddmm.draw(np.stack((It[0]*0.5,It[1]*0.5,J0[0]*1.5)),xJ,)
 fig.subplots_adjust(wspace=0,hspace=0,right=1)
-fig.savefig(output_prefix + 'IJsave.jpg')
+fig.savefig(os.path.join(output_prefix, 'IJsave.jpg'))
 
 fig,ax = emlddmm.draw(It,xJ)
 fig.subplots_adjust(wspace=0,hspace=0,right=1)
-fig.savefig(output_prefix + 'Isave.jpg')
+fig.savefig(os.path.join(output_prefix, 'Isave.jpg'))
 
 fig,ax = emlddmm.draw(J,xJ)
 plt.subplots_adjust(wspace=0,hspace=0,right=1)
-fig.savefig(output_prefix + 'Jsave.jpg')
+fig.savefig(os.path.join(output_prefix, 'Jsave.jpg'))
 
 # transform the target to atlas
 # for visualizatoin, we want to sample at xS so we can view it relative to the
 XS = np.stack(np.meshgrid(*xS,indexing='ij'))
-imp.reload(emlddmm)
 deformation = emlddmm.Transform(out2['v'],domain=out2['xv'],direction='f')
 affine = emlddmm.Transform(out2['A'],direction='f')
 tformi = emlddmm.compose_sequence([deformation,affine,],XS)
@@ -423,7 +411,7 @@ for i in range(n):
         ax.set_yticks([])
 fig.suptitle('Atlas space')
 fig.subplots_adjust(wspace=0,hspace=0,left=0.0,right=1,bottom=0,top=0.95)
-fig.savefig(output_prefix+'atlas_space.jpg',**figopts)
+fig.savefig(os.path.join(output_prefix, 'atlas_space.jpg'), **figopts)
 
 # view the transformed labels with the target
 fig = plt.figure(figsize=(8,5))
@@ -500,14 +488,13 @@ for i in range(n):
         ax.set_yticks([])
 fig.suptitle('Target space')
 fig.subplots_adjust(wspace=0,hspace=0,left=0.0,right=1,bottom=0,top=0.95)
-fig.savefig(output_prefix+'target_space.jpg',**figopts)
+fig.savefig(os.path.join(output_prefix, 'target_space.jpg'), **figopts)
 
 
 ### Get bounding boxes for striatum or another structure
 
 # bounding boxes using St
-import requests,csv
-ontology_name = output_prefix + 'allen_ontology.csv'
+ontology_name = os.path.join(output_prefix, 'allen_ontology.csv')
 r = 'http://api.brain-map.org/api/v2/data/query.csv?criteria=model::Structure,\
 rma::criteria,[ontology_id$eq1],\
 rma::options[order$eq%27structures.graph_order%27][num_rows$eqall]\
@@ -547,12 +534,11 @@ for l in labels:
     bbox0 = xJ[0][np.nonzero(np.sum(Sl,(0,2,3))>0)[0][[0,-1]]]
     bbox[l] = (bbox2[0],bbox2[1],bbox1[0],bbox1[1],bbox0[0],bbox0[1],ontology[l][0],ontology[l][1])
     
-import pandas as pd
 df = pd.DataFrame(bbox).T
 bbox_headings = ('x0','x1','y0','y1','z0','z1','short name','long name')
 df.columns=bbox_headings
 df.index.name = 'id'
-df.to_csv(output_prefix + 'bboxes.csv')
+df.to_csv(os.path.join(output_prefix, 'bboxes.csv'))
 
 # TODO, separate left from right in bounding box
 
@@ -570,9 +556,6 @@ def compute_face_normals(verts,faces,normalize=False):
 
 # let's get marching cubes surfaces going
 oJ = [x[0] for x in xJ]
-from skimage.measure import marching_cubes
-from mpl_toolkits import mplot3d
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 # or we could just loop through
 labels = np.unique(St)
 bbox = dict()
@@ -597,9 +580,12 @@ for l in labels:
     # let's save this
     readme_dct = { 'notes' : 'Data are saved in ZYX order',
                    'atlas_id' : ontology[l][1],
-                   'id' : {ontology[l][0]} }
+                   'id' : ontology[l][0] }
     readme = str(readme_dct)
-    np.savez(output_prefix + f'structure_{l:012d}_surface_{readme_dct["id"]}.npz',verts=verts,faces=faces,normals=normals,values=values,readme=readme)
+    # Clean id to prevent region names interfering with file name
+    clean_id = readme_dct["id"].replace('/', '_')
+    structure_fname = os.path.join(output_prefix, f'structure_{l:012d}_surface_{clean_id}.npz')
+    np.savez(structure_fname, verts=verts,faces=faces,normals=normals,values=values,readme=readme)
     
     surf = Poly3DCollection(verts[faces])
     n = compute_face_normals(verts,faces,normalize=True)
@@ -623,4 +609,4 @@ for l in labels:
     
     ax.set_title(f'structure {l}, {ontology[l][1]} ({ontology[l][0]})')    
     fig.canvas.draw()
-    fig.savefig(output_prefix + f'structure_{l:012d}_surface_{readme_dct["id"]}.jpg')
+    fig.savefig(os.path.join(output_prefix, f'structure_{l:012d}_surface_{clean_id}.jpg'))

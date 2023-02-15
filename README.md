@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # donglab_workflows
 Image registration workflows as part of Next Generation MORF BRAIN Initiative Project
 
