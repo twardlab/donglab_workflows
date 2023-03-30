@@ -116,7 +116,7 @@ print(f'Temp output dir is {outdir}')
 down = np.floor(res/dI).astype(int)
 
 nI = np.array(data.shape)
-if not(dI is None and image_type == 'ims'):
+if not(image_type == 'ims'):
     # if we couldn't calculate xI above, we'lluse these defaults
     xI = [np.arange(n)*d - (n-1)/2.0*d for n,d in zip(nI,dI)]
 nIreal = np.array([len(x) for x in xI])
