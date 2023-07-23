@@ -41,9 +41,43 @@ class TifStack:
         pass # nothing necessary
 
 
-def downsample(input_path=None, image_type=None, output_filename=None,
-               temp_dir=None, dI=None, res=50.0, channel=0, dataset_string=None,
-               chunksize=None, blocksize=None, outdir=None):
+def downsample():
+    parser = argparse.ArgumentParser(description="Downsample the lightsheet")
+    parser.add_argument("input_path", type = pathlib.Path,
+                        help="The input path, can be a directory or a filename")
+    parser.add_argument("image_type", choices = ["ims","tif"],
+                        help="The image type, can be either ims or tif")
+    parser.add_argument("-of", "--output_filename", default=None,
+                        help="The name of the generated output file")
+    parser.add_argument("temp_dir", type = pathlib.Path,
+                        help="The temporary output directory for intermediate results")
+    parser.add_argument("-dI", default=None,
+                        help="Deviation Index")
+    parser.add_argument("-res", default=50.0, type=np.float32,
+                        help="Desired voxel size")
+    parser.add_argument("-c","--channel", default=0, type=int,
+                        help="Specify channel number")
+    parser.add_argument("-dss","--dataset_string", default=None)
+    parser.add_argument("-cs","--chunksize", default=None,
+                        help="chunksize for looking for areas with no data and loading quickly")
+    parser.add_argument("-bs","--blocksize", default=None,
+                        help="blocksizesize for looking for areas with no data and loading quickly")
+    parser.add_argument("-oo", "--outdir", default=None,
+                        help="The output directory for downsample results")
+
+    args = parser.parse_args()
+
+    input_path      = args.input_path
+    image_type      = args.image_type
+    output_filename = args.output_filename
+    temp_dir        = args.temp_dir
+    dI              = args.dI
+    res             = args.res
+    channel         = args.channel
+    dataset_string  = args.dataset_string
+    chunksize       = args.chunksize
+    blocksize       = args.blocksize
+    outdir          = args.outdir
 
     # Assert in and out paths exists
     assert os.path.exists(input_path), f"Input path {input_path} does not exist"
@@ -94,7 +128,10 @@ def downsample(input_path=None, image_type=None, output_filename=None,
     down = np.floor(res/dI).astype(int)
 
     nI = np.array(data.shape)
-    xI = [np.arange(n)*d - (n-1)/2.0*d for n,d in zip(nI,dI)]
+
+    if not(image_type == 'ims'):
+        # if we couldn't calculate xI above, we'lluse these defaults
+        xI = [np.arange(n)*d - (n-1)/2.0*d for n,d in zip(nI,dI)]
     nIreal = np.array([len(x) for x in xI])
 
     xId = [dw.downsample(x,[d]) for x,d in zip(xI,down)]
@@ -231,42 +268,4 @@ def downsample(input_path=None, image_type=None, output_filename=None,
     fig.savefig(output_filename.replace('npz','jpg'))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Downsample the lightsheet")
-    parser.add_argument("input_path", type = pathlib.Path,
-                        help="The input path, can be a directory or a filename")
-    parser.add_argument("image_type", choices = ["ims","tif"],
-                        help="The image type, can be either ims or tif")
-    parser.add_argument("-of", "--output_filename", default=None,
-                        help="The name of the generated output file")
-    parser.add_argument("temp_dir", type = pathlib.Path,
-                        help="The temporary output directory for intermediate results")
-    parser.add_argument("-dI", default=None,
-                        help="Deviation Index")
-    parser.add_argument("-res", default=50.0, type=np.float32,
-                        help="Desired voxel size")
-    parser.add_argument("-c","--channel", default=0, type=int,
-                        help="Specify channel number")
-    parser.add_argument("-dss","--dataset_string", default=None)
-    parser.add_argument("-cs","--chunksize", default=None,
-                        help="chunksize for looking for areas with no data and loading quickly")
-    parser.add_argument("-bs","--blocksize", default=None,
-                        help="blocksizesize for looking for areas with no data and loading quickly")
-    parser.add_argument("-oo", "--outdir", default=None,
-                        help="The output directory for downsample results")
-
-    args = parser.parse_args()
-
-    input_path      = args.input_path
-    image_type      = args.image_type
-    output_filename = args.output_filename
-    temp_dir        = args.temp_dir
-    dI              = args.dI
-    res             = args.res
-    channel         = args.channel
-    dataset_string  = args.dataset_string
-    chunksize       = args.chunksize
-    blocksize       = args.blocksize
-    outdir          = args.outdir
-
-    downsample(input_path, image_type, output_filename, temp_dir, dI, res,
-               channel, dataset_string, chunksize, blocksize, outdir)
+    downsample()
