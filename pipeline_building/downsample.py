@@ -130,17 +130,17 @@ def downsample():
     nI = np.array(data.shape)
 
     if not(image_type == 'ims'):
-        # if we couldn't calculate xI above, we'lluse these defaults
+        # if we couldn't calculate xI above, we'll use these defaults
         xI = [np.arange(n)*d - (n-1)/2.0*d for n,d in zip(nI,dI)]
     nIreal = np.array([len(x) for x in xI])
 
     xId = [dw.downsample(x,[d]) for x,d in zip(xI,down)]
-    dId = [x[1]-x[0] for x in xId]
+    # dId = [x[1]-x[0] for x in xId]
 
     # Iterate over the dataset (currently not doing weights) + Save intermediate outputs
     # (each slice) in case of errors
-    fig,ax = plt.subplots(2,2)
-    ax = ax.ravel()
+    # fig,ax = plt.subplots(2,2)
+    # ax = ax.ravel()
     working = []
     working2 = []
     workingw = []
@@ -204,18 +204,18 @@ def downsample():
             np.save(outname.replace('_s','_w'),wd)
             np.save(outname.replace('_s','_s2'),s2d)
 
-        ax[0].cla()
-        wd0 = wd>0.0
-        if np.any(wd0):
-            vmin = np.min(sd[wd0])
-            vmax = np.max(sd[wd0])
-        else:
-            vmin = None
-            vmax = None
-        ax[0].cla()
-        ax[0].imshow(sd,vmin=vmin,vmax=vmax)
-        ax[2].cla()
-        ax[2].imshow(wd,vmin=0,vmax=1)
+        # ax[0].cla()
+        # wd0 = wd>0.0
+        # if np.any(wd0):
+        #     vmin = np.min(sd[wd0])
+        #     vmax = np.max(sd[wd0])
+        # else:
+        #     vmin = None
+        #     vmax = None
+        # ax[0].cla()
+        # ax[0].imshow(sd,vmin=vmin,vmax=vmax)
+        # ax[2].cla()
+        # ax[2].imshow(wd,vmin=0,vmax=1)
         working.append(sd)
         working2.append(s2d)
         workingw.append(wd)
@@ -229,28 +229,28 @@ def downsample():
             out[np.isnan(out)] = 0.0
             out2 /= outw
             out2[np.isnan(out2)] = 0.0
-            outstd = out2 - out**2
-            outstd[outstd<0]=0
-            outstd = np.sqrt(outstd)
-            wd0 = (wd>0.0)[None]
-            if np.any(wd0):
-                outshow = (out[0] - np.min(out[wd0]))/(np.quantile(out[wd0],0.99) - np.min(out[wd0]))
-                outshowstd = (outstd[0] - np.min(outstd[wd0]))/(np.quantile(outstd[wd0],0.99) - np.min(outstd[wd0]))
-            else:
-                outshow = (out[0] - np.min(out))/(np.quantile(out,0.99) - np.min(out))
-                outshowstd = (outstd[0] - np.min(outstd))/(np.quantile(outstd,0.99) - np.min(outstd))
-            ax[1].cla()
-            ax[1].imshow(np.stack((outshow,outshowstd,outshow),-1))
-            ax[3].cla()
-            ax[3].imshow(outw[0],vmin=0,vmax=1)
+            # outstd = out2 - out**2
+            # outstd[outstd<0]=0
+            # outstd = np.sqrt(outstd)
+            # wd0 = (wd>0.0)[None]
+            # if np.any(wd0):
+            #     outshow = (out[0] - np.min(out[wd0]))/(np.quantile(out[wd0],0.99) - np.min(out[wd0]))
+            #     outshowstd = (outstd[0] - np.min(outstd[wd0]))/(np.quantile(outstd[wd0],0.99) - np.min(outstd[wd0]))
+            # else:
+            #     outshow = (out[0] - np.min(out))/(np.quantile(out,0.99) - np.min(out))
+            #     outshowstd = (outstd[0] - np.min(outstd))/(np.quantile(outstd,0.99) - np.min(outstd))
+            # ax[1].cla()
+            # ax[1].imshow(np.stack((outshow,outshowstd,outshow),-1))
+            # ax[3].cla()
+            # ax[3].imshow(outw[0],vmin=0,vmax=1)
             output.append(out)
             output2.append(out2)
             outputw.append(outw)
             working = []
             workingw = []
             working2 = []
-        fig.suptitle(f'slice {i} of {data.shape[0]}')
-        fig.canvas.draw()
+        # fig.suptitle(f'slice {i} of {data.shape[0]}')
+        # fig.canvas.draw()
         print(f'Finished loading slice {i} of {data.shape[0]}, time {time.time() - starti} s')
 
     output = np.concatenate(output)
