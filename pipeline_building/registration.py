@@ -29,6 +29,8 @@ parser.add_argument("savename",type=pathlib.Path,help="Name of file once it is s
 parser.add_argument("atlas_names",type=pathlib.Path,nargs='+',help="Location of the atlas images")
 parser.add_argument("-d","--device",default='cuda:0',help="Device used for pytorch")
 parser.add_argument("-a","--A0",type=str,default=None,help="Affine transformation (Squeezed to 16x1 + Sep by ',')")
+parser.add_argument("-res","--resolution", type=np.float32, choices=[20.0, 50.0], default=20, help="Resoultion used during downsampling")
+parser.add_argument("-j","--jpg", action="store_true", help="Generate 3d jpegs for each structure")
 
 args = parser.parse_args()
 
@@ -37,9 +39,10 @@ output_prefix = args.output_prefix
 atlas_names   = args.atlas_names
 seg_name      = args.seg_name
 savename      = args.savename
+resolution    = args.resolution
+jpg           = args.jpg
 device        = args.device
 A0            = args.A0
-
 
 
 ##########
@@ -52,17 +55,12 @@ if 'cuda' in device:
     assert(torch.cuda.is_available(), 'You selected device cuda but it is not available. exiting')
 ##########
 
-    
-    
-
-
 # Specify output directory
 output_directory = os.path.split(output_prefix)[0]
 if output_directory:
     if not os.path.exists(output_directory):
         os.mkdir(output_directory)
-        
-        
+
 # Load the target image
 target_data = np.load(target_name,allow_pickle=True)
 
@@ -72,6 +70,7 @@ J /= np.mean(np.abs(J))
 xJ = target_data['xI']
 dJ = [x[1] - x[0] for x in xJ]
 J0 = np.copy(J)
+origin = np.array([xJ[0][0], xJ[1][0], xJ[2][0]])  # Assumming a x, y, z origin
 
 if 'w' in target_data:
     W = target_data['w']
@@ -88,7 +87,7 @@ emlddmm.draw(W[None])
 
 fig,ax = emlddmm.draw(J,xJ,vmin=np.min(J[W[None]>0.9]))
 fig.suptitle('Downsampled lightsheet data')
-figopts = {'dpi':300,'quality':90}
+figopts = {'dpi':300}
 fig.savefig(os.path.join(output_prefix, 'downsampled.jpg'),**figopts)
 fig.canvas.draw()
 
@@ -98,8 +97,8 @@ for atlas_name in atlas_names:
     I_ = I_.astype(np.float32)
     I_ /= np.mean(np.abs(I_))
     I.append(I_)
-    
-I = np.concatenate(I)    
+
+I = np.concatenate(I)
 dI = [x[1] - x[0] for x in xI]
 XI = np.meshgrid(*xI,indexing='ij')
 
@@ -128,8 +127,6 @@ fig.canvas.draw()
 
 
 ### Initial Preprocessing
-
-
 # Target preprocessing
 
 # background
@@ -170,7 +167,7 @@ fig.canvas.draw()
 
 ### Registration
 
-if A0 == None:                   
+if A0 == None:
     # initial affine
     A0 = np.eye(4)
     # make sure to keep sign of Jacobian
@@ -181,7 +178,7 @@ if A0 == None:
     A0 = np.array([[0.0,0.0,-1.0,0.0],[0.0,1.0,0.0,0.0],[1.0,0.0,0.0,0.0],[0.0,0.0,0.0,1.0]])@A0
     # flip x1,x2
     #A0 = np.array([[-1.0,0.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,0.0,1.0]])@A0
-    # flip 
+    # flip
     #A0 = np.diag((1.0,-1.0,-1.0,1.0))@A0
     # shift
     #A0[0,-1] = +3500 # left right, positive will cut off the missing hemisphere as appropriate
@@ -202,15 +199,20 @@ else:  # Use else here, otherwise this will always run
 # now we want to register
 config0 = {
     'device':device,
-    'n_iter':200, 'downI':[4,4,4], 'downJ':[4,4,4],
-     'priors':[0.9,0.05,0.05],'update_priors':False,
-     'update_muA':0,'muA':[np.quantile(J,0.99)],
-     'update_muB':0,'muB':[0.0],
-     'update_sigmaM':0,'update_sigmaA':0,'update_sigmaB':0,
-     'sigmaM':0.25,'sigmaB':0.5,'sigmaA':1.25,
-     'order':1,'n_draw':50,'n_estep':3,'slice_matching':0,'v_start':1000,
-     'eA':5e4,'A':A0,'full_outputs':True,
-   }
+    'n_iter':200, 'downI':[8, 8, 8], 'downJ':[8, 8, 8],
+    'priors':[0.9,0.05,0.05],'update_priors':False,
+    'update_muA':0,'muA':[np.quantile(J,0.99)],
+    'update_muB':0,'muB':[0.0],
+    'update_sigmaM':0,'update_sigmaA':0,'update_sigmaB':0,
+    'sigmaM':0.25,'sigmaB':0.5,'sigmaA':1.25,
+    'order':1,'n_draw':50,'n_estep':3,'slice_matching':0,'v_start':1000,
+    'eA':5e4,'A':A0,'full_outputs':True,
+}
+
+if resolution == 50:
+    config0['downI'] = [4, 4, 4]
+    config0['downJ'] = [4, 4, 4]
+
 # update my sigmas (august 22)
 config0['sigmaM'] = 1.0
 config0['sigmaB'] = 2.0
@@ -237,9 +239,13 @@ config1['n_iter']= 2000
 config1['v_start'] = 0
 config1['ev'] = 1e-2
 config1['ev'] = 2e-3 # reduce since I decreased sigma
-config1['v_res_factor'] = config1['a']/dI[0]/2 # what is the resolution of v, as a multiple of that in I
+config1['v_res_factor'] = config1['a']/dI[0]/4 # what is the resolution of v, as a multiple of that in I
 config1['local_contrast'] = [32,32,32]
 config1['local_contrast'] = [16,16,16]
+
+if resolution == 50:
+    config1['v_res_factor'] = config1['a']/dI[0]/2
+
 # config1['device'] = 'cpu' # we will keep the same device and not update it, this can cause problems
 
 #I_ = np.stack((I[2],I[0],I[1],I[0]**2,I[0]*I[1],I[1]**2,))
@@ -262,8 +268,13 @@ config2 = dict(config1)
 config2['A'] = out1['A']
 config2['n_iter']= 1000
 config2['v'] = out1['v']
-config2['downI'] = [2,2,2]
-config2['downJ'] = [2,2,2]
+config2['downI'] = [4, 4, 4]
+config2['downJ'] = [4, 4, 4]
+
+if resolution == 50:
+    config2['downJ'] = [2, 2, 2]
+    config2['downI'] = [2, 2, 2]
+
 # there seems to be an issue with the initial velocity
 # when I run this twice, I'm reusing it
 out2 = emlddmm.emlddmm(xI=xI,I=I_,xJ=xJ,J=J, W0=W, **config2)
@@ -340,8 +351,8 @@ fig = plt.figure(figsize=(7,7))
 n = 4
 slices = np.round(np.linspace(0,I.shape[1],n+2)[1:-1]).astype(int)
 for i in range(n):
-    ax = fig.add_subplot(3,n,i+1)    
-    
+    ax = fig.add_subplot(3,n,i+1)
+
     # get slices
     RGB_ = RGB[:,slices[i]].transpose(1,2,0)
     S_ = S[0,slices[i]]
@@ -355,17 +366,17 @@ for i in range(n):
     border |= S_ != np.roll(S_,shift=-1,axis=0)
     border |= S_ != np.roll(S_,shift=1,axis=1)
     border |= S_ != np.roll(S_,shift=-1,axis=1)
-    
+
     # draw
     ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])
     if i>0:
         ax.set_xticks([])
         ax.set_yticks([])
-    
+
 slices = np.round(np.linspace(0,I.shape[2],n+2)[1:-1]).astype(int)
 for i in range(n):
-    ax = fig.add_subplot(3,n,i+1 + n)    
-    
+    ax = fig.add_subplot(3,n,i+1 + n)
+
     # get slices
     RGB_ = RGB[:,:,slices[i]].transpose(1,2,0)
     S_ = S[0,:,slices[i]]
@@ -379,7 +390,7 @@ for i in range(n):
     border |= S_ != np.roll(S_,shift=-1,axis=0)
     border |= S_ != np.roll(S_,shift=1,axis=1)
     border |= S_ != np.roll(S_,shift=-1,axis=1)
-    
+
     # draw
     ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])
     if i>0:
@@ -388,8 +399,8 @@ for i in range(n):
 
 slices = np.round(np.linspace(0,I.shape[3],n+2)[1:-1]).astype(int)
 for i in range(n):
-    ax = fig.add_subplot(3,n,i+1 + n+n)    
-    
+    ax = fig.add_subplot(3,n,i+1 + n+n)
+
     # get slices
     RGB_ = RGB[:,:,:,slices[i]].transpose(1,2,0)
     S_ = S[0,:,:,slices[i]]
@@ -403,9 +414,9 @@ for i in range(n):
     border |= S_ != np.roll(S_,shift=-1,axis=0)
     border |= S_ != np.roll(S_,shift=1,axis=1)
     border |= S_ != np.roll(S_,shift=-1,axis=1)
-    
+
     # draw
-    ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])    
+    ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])
     if i>0:
         ax.set_xticks([])
         ax.set_yticks([])
@@ -417,8 +428,8 @@ fig.savefig(os.path.join(output_prefix, 'atlas_space.jpg'), **figopts)
 fig = plt.figure(figsize=(8,5))
 slices = np.round(np.linspace(0,J.shape[1],n+2)[1:-1]).astype(int)
 for i in range(n):
-    ax = fig.add_subplot(3,n,i+1)    
-    
+    ax = fig.add_subplot(3,n,i+1)
+
     # get slices
     RGB_ = RGBt[:,slices[i]].transpose(1,2,0)
     S_ = St[0,slices[i]]
@@ -432,17 +443,17 @@ for i in range(n):
     border |= S_ != np.roll(S_,shift=-1,axis=0)
     border |= S_ != np.roll(S_,shift=1,axis=1)
     border |= S_ != np.roll(S_,shift=-1,axis=1)
-    
+
     # draw
     ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])
     if i>0:
         ax.set_xticks([])
         ax.set_yticks([])
-    
+
 slices = np.round(np.linspace(0,J.shape[2],n+2)[1:-1]).astype(int)
 for i in range(n):
-    ax = fig.add_subplot(3,n,i+1 + n)    
-    
+    ax = fig.add_subplot(3,n,i+1 + n)
+
     # get slices
     RGB_ = RGBt[:,:,slices[i]].transpose(1,2,0)
     S_ = St[0,:,slices[i]]
@@ -456,7 +467,7 @@ for i in range(n):
     border |= S_ != np.roll(S_,shift=-1,axis=0)
     border |= S_ != np.roll(S_,shift=1,axis=1)
     border |= S_ != np.roll(S_,shift=-1,axis=1)
-    
+
     # draw
     ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])
     if i>0:
@@ -465,8 +476,8 @@ for i in range(n):
 
 slices = np.round(np.linspace(0,J.shape[3],n+2)[1:-1]).astype(int)
 for i in range(n):
-    ax = fig.add_subplot(3,n,i+1 + n+n)    
-    
+    ax = fig.add_subplot(3,n,i+1 + n+n)
+
     # get slices
     RGB_ = RGBt[:,:,:,slices[i]].transpose(1,2,0)
     S_ = St[0,:,:,slices[i]]
@@ -480,9 +491,9 @@ for i in range(n):
     border |= S_ != np.roll(S_,shift=-1,axis=0)
     border |= S_ != np.roll(S_,shift=1,axis=1)
     border |= S_ != np.roll(S_,shift=-1,axis=1)
-    
+
     # draw
-    ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])    
+    ax.imshow(alpha*border[...,None]*RGB_ + ((1-alpha*border)*Jt_)[...,None])
     if i>0:
         ax.set_xticks([])
         ax.set_yticks([])
@@ -494,16 +505,23 @@ fig.savefig(os.path.join(output_prefix, 'target_space.jpg'), **figopts)
 ### Get bounding boxes for striatum or another structure
 
 # bounding boxes using St
-ontology_name = os.path.join(output_prefix, 'allen_ontology.csv')
-r = 'http://api.brain-map.org/api/v2/data/query.csv?criteria=model::Structure,\
-rma::criteria,[ontology_id$eq1],\
-rma::options[order$eq%27structures.graph_order%27][num_rows$eqall]\
-'
-if True:# not os.path.exists(ontology_name):
-    output = requests.get(r)
-    with open(ontology_name,'wt') as f:
-        f.write(output.text)
+# ontology_name = os.path.join(output_prefix, 'allen_ontology.csv')
+# r = 'http://api.brain-map.org/api/v2/data/query.csv?criteria=model::Structure,\
+# rma::criteria,[ontology_id$eq1],\
+# rma::options[order$eq%27structures.graph_order%27][num_rows$eqall]\
+# '
+# if True:# not os.path.exists(ontology_name):
+#     output = requests.get(r)
+#     with open(ontology_name,'wt') as f:
+#         f.write(output.text)
         
+ontology_name = '/panfs/dong/atlas_3d/upenn_vtk/atlas_info_KimRef_FPbasedLabel_v2.7.csv'
+
+parent_column = 7  # 8 for allen, 7 for yongsoo
+label_column = 0  # 0 for both
+shortname_column = 2  # 3 for allen, 2 for yongsoo
+longname_column = 1  # 2 for allen, 1 for yongsoo
+
 ontology = dict()
 with open(ontology_name) as f:
     csvreader = csv.reader(f, delimiter=',', quotechar='"')
@@ -513,13 +531,39 @@ with open(ontology_name) as f:
             headers = row
             print(headers)
         else:
-            if not row[8]:
+            if not row[parent_column]:
                 parent = -1
             else:
-                parent = int(row[8])
-            ontology[int(row[0])] = (row[3],row[2],parent)
+                parent = int(row[parent_column])
+            ontology[int(row[label_column])] = (row[shortname_column],row[longname_column],parent)
         count += 1
-        
+
+# we need to find all the descendants of a given label
+# first we'll get children
+children = dict()
+for o in ontology:
+    parent = ontology[o][-1]
+    if parent not in children:
+        children[parent] = []
+    children[parent].append(o)
+
+
+# now we go from children to descendents
+descendents = dict(children)
+for o in descendents:
+    for child in descendents[o]:
+        if child in descendents: # if I don't do this i get a key error 0
+            descendents[o].extend(descendents[child])
+descendents[0] = []
+
+
+descendents_and_self = dict(descendents)
+for o in ontology:
+    if o not in descendents_and_self:
+        descendents_and_self[o] = [o]
+    else:
+        descendents_and_self[o].append(o)
+
 # or we could just loop through
 labels = np.unique(St)
 bbox = dict()
@@ -527,13 +571,13 @@ for l in labels:
     # skip background
     if l == 0:
         continue
-    
+
     Sl = St == l
     bbox2 = xJ[2][np.nonzero(np.sum(Sl,(0,1,2))>0)[0][[0,-1]]]
     bbox1 = xJ[1][np.nonzero(np.sum(Sl,(0,1,3))>0)[0][[0,-1]]]
     bbox0 = xJ[0][np.nonzero(np.sum(Sl,(0,2,3))>0)[0][[0,-1]]]
     bbox[l] = (bbox2[0],bbox2[1],bbox1[0],bbox1[1],bbox0[0],bbox0[1],ontology[l][0],ontology[l][1])
-    
+
 df = pd.DataFrame(bbox).T
 bbox_headings = ('x0','x1','y0','y1','z0','z1','short name','long name')
 df.columns=bbox_headings
@@ -565,48 +609,66 @@ bbox = dict()
 
 fig = plt.figure()
 
-for l in labels:
+# Generate descendent meshes
+for l in ontology:
+    print(f'starting {l}')
     # skip background
     if l == 0:
+        print('skipping 0')
         continue
-    
+
     Sl = St == l
+    count0 = np.sum(Sl)
     # do marching cubes
-    
+    print('adding ',end='')
+    for o in descendents_and_self[l]:
+        print(f'{o},',end='')
+        Sl = np.logical_or(Sl,St==o)
+    count1 = np.sum(Sl)
+    if count0 != count1:
+        print(f'Structure {l} shows differences')
+    if count1 == 0:
+        print(f'no voxels for structure {l}')
+        continue
+
     verts,faces,normals,values = marching_cubes(Sl[0]*1.0,level=0.5,spacing=dJ)
     # deal with the offsets
     verts += oJ
     
     # let's save this
-    readme_dct = { 'notes' : 'Data are saved in ZYX order',
-                   'atlas_id' : ontology[l][1],
-                   'id' : ontology[l][0] }
+    readme_dct = {'notes' : 'Data are saved in ZYX order',
+                  'atlas_id' : ontology[l][1],
+                  'id' : ontology[l][0] }
     readme = str(readme_dct)
     # Clean id to prevent region names interfering with file name
-    clean_id = readme_dct["id"].replace('/', '_')
-    structure_fname = os.path.join(output_prefix, f'structure_{l:012d}_surface_{clean_id}.npz')
-    np.savez(structure_fname, verts=verts,faces=faces,normals=normals,values=values,readme=readme)
-    
-    surf = Poly3DCollection(verts[faces])
-    n = compute_face_normals(verts,faces,normalize=True)
-    surf.set_color(n*0.5+0.5)
-    fig.clf()
-    ax = fig.add_subplot(projection='3d')
-    ax.add_collection3d(surf)
-    xlim = (np.min(verts[:,0]),np.max(verts[:,0]))
-    ylim = (np.min(verts[:,1]),np.max(verts[:,1]))
-    zlim = (np.min(verts[:,2]),np.max(verts[:,2]))
-    # fix aspect ratio
-    r = [np.diff(x) for x in (xlim,ylim,zlim)]
-    rmax = np.max(r)
-    c = [np.mean(x) for x in (xlim,ylim,zlim)]
-    xlim = (c[0]-rmax/2,c[0]+rmax/2)
-    ylim = (c[1]-rmax/2,c[1]+rmax/2)
-    zlim = (c[2]-rmax/2,c[2]+rmax/2)
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    ax.set_zlim(zlim)
-    
-    ax.set_title(f'structure {l}, {ontology[l][1]} ({ontology[l][0]})')    
-    fig.canvas.draw()
-    fig.savefig(os.path.join(output_prefix, f'structure_{l:012d}_surface_{clean_id}.jpg'))
+    clean_id = readme_dct["id"]
+    for char in ['/', "' ", ', ', " "]:
+        clean_id = clean_id.replace(char, '_')
+
+    struct_des_fname = os.path.join(output_prefix, f'structure_AND_DESCENDENTS_{l:012d}_surface_{clean_id}.npz')
+    np.savez(struct_des_fname, verts=verts,faces=faces,normals=normals,values=values,readme=readme, origin=origin)
+
+    if jpg:
+        surf = Poly3DCollection(verts[faces])
+        n = compute_face_normals(verts,faces,normalize=True)
+        surf.set_color(n*0.5+0.5)
+        fig.clf()
+        ax = fig.add_subplot(projection='3d')
+        ax.add_collection3d(surf)
+        xlim = (np.min(verts[:,0]),np.max(verts[:,0]))
+        ylim = (np.min(verts[:,1]),np.max(verts[:,1]))
+        zlim = (np.min(verts[:,2]),np.max(verts[:,2]))
+        # fix aspect ratio
+        r = [np.diff(x) for x in (xlim,ylim,zlim)]
+        rmax = np.max(r)
+        c = [np.mean(x) for x in (xlim,ylim,zlim)]
+        xlim = (c[0]-rmax/2,c[0]+rmax/2)
+        ylim = (c[1]-rmax/2,c[1]+rmax/2)
+        zlim = (c[2]-rmax/2,c[2]+rmax/2)
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.set_zlim(zlim)
+
+        ax.set_title(f'structure {l}, {ontology[l][1]} ({ontology[l][0]})')
+        fig.canvas.draw()
+        fig.savefig(os.path.join(output_prefix, f'structure_AND_DESCENDENTS_{l:012d}_surface.jpg'))
