@@ -1,13 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-from glob import glob
-from os.path import join as pathjoin
-import h5py
 import time
-
-import imp
-
 
 def draw_slices(I,xI=None,n=5,channel_ax=0,fig=None,vmin=None,vmax=None,**kwargs):
     ''' Draw slices in 3 orientations
