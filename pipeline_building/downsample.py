@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
 import argparse
@@ -11,8 +11,8 @@ import h5py
 import time
 
 import sys
-sys.path.append('..')
-import donglab_workflows as dw
+# sys.path.append('..')
+# import donglab_workflows as dw
 import PIL.Image as Image
 Image.MAX_IMAGE_PIXELS = None
 import tifffile as tf # for 16 bit tiff
@@ -50,7 +50,7 @@ def downsample():
     parser.add_argument("-of", "--output_filename", default=None,
                         help="The name of the generated output file")
     parser.add_argument("temp_dir", type = pathlib.Path,
-                        help="The temporary output directory for intermediate results")
+                        help="The temporary output directory for intermediate results; Should be unique for every donwsampled file")
     parser.add_argument("-dI", default=None,
                         help="Deviation Index")
     parser.add_argument("-res", default=50.0, type=np.float32,
@@ -64,6 +64,8 @@ def downsample():
                         help="blocksizesize for looking for areas with no data and loading quickly")
     parser.add_argument("-oo", "--outdir", default=None,
                         help="The output directory for downsample results")
+    parser.add_argument("-power",type=np.float32,default=0.125,help='The power to reduce the dynamic range within the gamma transformation')
+    parser.add_argument('-d_path',default='..',type=str, help='Path of donglab_workflows directory if running this script externally')
 
     args = parser.parse_args()
 
@@ -78,6 +80,11 @@ def downsample():
     chunksize       = args.chunksize
     blocksize       = args.blocksize
     outdir          = args.outdir
+    dw_path         = args.d_path
+    power_          = args.power
+
+    sys.path.append(dw_path)
+    import donglab_workflows as dw
 
     # Assert in and out paths exists
     assert os.path.exists(input_path), f"Input path {input_path} does not exist"
@@ -88,7 +95,7 @@ def downsample():
         os.makedirs(temp_dir)
 
     # power to reduce dynamic range
-    power = np.ones(1,dtype=np.float32)*0.125
+    power = np.ones(1,dtype=np.float32)*power_
 
     # blocksize and chunksize for looking for areas with no data and loading quickly
 
