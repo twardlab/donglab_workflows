@@ -51,7 +51,7 @@ def downsample():
                         help="The name of the generated output file")
     parser.add_argument("temp_dir", type = pathlib.Path,
                         help="The temporary output directory for intermediate results; Should be unique for every donwsampled file")
-    parser.add_argument("-dI", default=None,
+    parser.add_argument("-dI", default=None, type = np.float32, nargs = 3,
                         help="Deviation Index")
     parser.add_argument("-res", default=50.0, type=np.float32,
                         help="Desired voxel size")
@@ -64,8 +64,10 @@ def downsample():
                         help="blocksizesize for looking for areas with no data and loading quickly")
     parser.add_argument("-oo", "--outdir", default=None,
                         help="The output directory for downsample results")
-    parser.add_argument("-power",type=np.float32,default=0.125,help='The power to reduce the dynamic range within the gamma transformation')
-    parser.add_argument('-d_path',default='..',type=str, help='Path of donglab_workflows directory if running this script externally')
+    parser.add_argument("-power",type=np.float32,default=0.125,
+                        help='The power to reduce the dynamic range within the gamma transformation')
+    parser.add_argument('-d_path',default='..',type=str,
+                        help='Path of donglab_workflows directory if running this script externally')
 
     args = parser.parse_args()
 
@@ -73,7 +75,7 @@ def downsample():
     image_type      = args.image_type
     output_filename = args.output_filename
     temp_dir        = args.temp_dir
-    dI              = args.dI
+    dI              = args.dI if args.dI == None else np.asarray(args.dI)
     res             = args.res
     channel         = args.channel
     dataset_string  = args.dataset_string
@@ -100,6 +102,7 @@ def downsample():
     # blocksize and chunksize for looking for areas with no data and loading quickly
 
     # if none will load from data
+    xI = None
     if dI is None and image_type == 'ims':
         f = h5py.File(input_path,'r')
         dI = dw.imaris_get_pixel_size(f)
@@ -136,7 +139,7 @@ def downsample():
 
     nI = np.array(data.shape)
 
-    if not(image_type == 'ims'):
+    if not(image_type == 'ims') or xI == None:
         # if we couldn't calculate xI above, we'll use these defaults
         xI = [np.arange(n)*d - (n-1)/2.0*d for n,d in zip(nI,dI)]
     nIreal = np.array([len(x) for x in xI])
